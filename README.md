@@ -1,15 +1,85 @@
 # PenguinTransportDiffusion.jl
 
-Thin advection-diffusion package for cut-cell Cartesian grids:
+[![In development documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://PenguinxCutCell.github.io/PenguinTransportDiffusion.jl/dev)
 
+`PenguinTransportDiffusion.jl` is a cut-cell advection-diffusion package built on top of `PenguinDiffusion.jl` and `PenguinTransport.jl`.
+
+It solves
+
+```math
+\partial_t T + \nabla \cdot (uT) = \nabla \cdot (D\nabla T) + f
 ```
-∂t T + ∇·(uT) = ∇·(D∇T) + f
+
+for mono-phase problems on Cartesian cut-cell grids using a coupled `(ω, γ)` formulation.
+
+## Install
+
+```julia
+using Pkg
+Pkg.add(url="https://github.com/PenguinxCutCell/PenguinTransportDiffusion.jl")
 ```
 
-Design:
-- diffusion assembly delegated to `PenguinDiffusion`
-- advection operators and inflow/outflow boundary injection delegated to `CartesianOperators` / `PenguinTransport`
-- one mono model (`ω,γ` layout) with unsteady support (`:BE`, `:CN`, or numeric `θ`).
+## Quick Start
 
-Boundary condition note:
-- one `BorderConditions` is accepted by `AdvDiffModelMono`.
+```julia
+using CartesianGeometry: geometric_moments, nan
+using CartesianOperators
+using PenguinBCs
+using PenguinTransportDiffusion
+
+grid = (range(0.0, 1.0; length=65), range(0.0, 1.0; length=65))
+moms = geometric_moments((args...) -> -1.0, grid, Float64, nan; method=:vofijul)
+cap = assembled_capacity(moms; bc=0.0)
+
+bc = BorderConditions(; left=Periodic(), right=Periodic(), bottom=Periodic(), top=Periodic())
+model = AdvDiffModelMono(cap, 1e-3, (1.0, 0.0), (1.0, 0.0); source=0.0, bc=bc)
+
+u0 = zeros(cap.ntotal)
+sol = solve_unsteady!(model, u0, (0.0, 0.01); dt=1e-4, scheme=:BE, method=:direct)
+```
+
+## Feature Release Matrix
+
+| Area | Item | Status | Notes |
+|---|---|---|---|
+| Models | Mono-phase steady advection-diffusion | Implemented | `AdvDiffModelMono` + `assemble_steady_mono!` |
+| Models | Mono-phase unsteady advection-diffusion | Implemented | `assemble_unsteady_mono!` + `solve_unsteady!` (`:BE`, `:CN`, numeric `θ`) |
+| Models | Moving-geometry advection-diffusion | Missing | No moving-domain model type in this package |
+| Models | Diphasic advection-diffusion | Missing | Only mono-phase model is exposed |
+| Coupling | Diffusion assembly reuse | Implemented | Delegates to `PenguinDiffusion.assemble_steady_mono!` |
+| Coupling | Advection operator reuse | Implemented | Delegates advection ops/BCs to `PenguinTransport` |
+| Coefficients | Constant diffusion coefficient | Implemented | Scalar `D` supported through diffusion model |
+| Coefficients | Space/time variable diffusion coefficient | Implemented | Callback coefficients supported through diffusion model |
+| Velocity input | Constant velocity components | Implemented | Scalar per component supported |
+| Velocity input | Nodal vector velocity components | Implemented | Per-component vector of length `ntotal` supported |
+| Velocity input | Callback velocity components | Implemented | `(x...)` and `(x..., t)` supported |
+| Interface | Diffusion interface Robin condition | Implemented | `bc_interface_diff::Union{Nothing,Robin}` |
+| Interface | Pure Neumann interface gauge fixing helper | Partial | Nullspace exists; user pins one active `γ` row in examples/tests |
+| Outer BCs | Periodic | Implemented | Supported on diffusion and advection sides |
+| Outer BCs | Dirichlet/Neumann in mixed model | Implemented | Diffusion uses given BC; advection side mapped to `Outflow` |
+| Outer BCs | Inflow/Outflow in mixed model | Implemented | Advection uses given BC; diffusion side mapped to homogeneous Neumann |
+| Time integration | Backward Euler (`:BE`) | Implemented | Via theta path (`θ=1`) |
+| Time integration | Crank-Nicolson (`:CN`) | Implemented | Via theta path (`θ=1/2`) |
+| Time integration | Generic theta (`θ`) | Implemented | Numeric `scheme` accepted |
+| Solver path | Direct / iterative backend use | Implemented | Uses `PenguinSolverCore.solve!` with `method` keyword |
+| Solver path | Constant-operator/factorization reuse in march | Missing | `solve_unsteady!` currently reassembles each step |
+| Utilities | Geometry rebuild | Implemented | `rebuild!(model, moments; ...)` |
+| Utilities | Advection-op refresh API | Implemented | `update_advection_ops!` |
+| Validation | Regression tests | Implemented | Convergence and mass-drift tests in `test/runtests.jl` |
+| Validation | Standalone examples | Implemented | Two runnable scripts in `examples/` |
+
+## Documentation
+
+Local build:
+
+```bash
+julia --project=docs -e 'using Pkg; Pkg.instantiate(); include("docs/make.jl")'
+```
+
+## Development
+
+Run tests:
+
+```bash
+julia --project=. -e 'using Pkg; Pkg.test()'
+```
