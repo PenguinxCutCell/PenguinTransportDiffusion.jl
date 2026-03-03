@@ -1,0 +1,38 @@
+name = "PenguinTransportDiffusion"
+uuid = "f843854d-6f0c-4129-ba06-0ddc42579c47"
+version = "0.1.0"
+
+[deps]
+CartesianGeometry = "5961ddb3-e46d-41f1-806c-0197ba873d0b"
+CartesianOperators = "6ffd2c7a-1a34-4f8b-a2c9-3d5e7f9b0c1d"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+PenguinBCs = "9a5f4c72-2b90-4b4f-93d2-7b2c8e4d1f30"
+PenguinSolverCore = "8f14e45f-7d0b-4a6b-9c1e-2f3d4b5a6c7d"
+PenguinDiffusion = "c72b9f8e-3a44-4f12-a9d3-6e5b2c1f7a8b"
+PenguinTransport = "d3a1f7c2-9b5e-4f12-a6c3-7b9d2e1f0a4b"
+
+[sources]
+CartesianGeometry = {path = "../CartesianGeometry.jl"}
+CartesianOperators = {path = "../CartesianOperators.jl"}
+PenguinBCs = {path = "../PenguinBCs.jl"}
+PenguinSolverCore = {path = "../PenguinSolverCore.jl"}
+PenguinDiffusion = {path = "../PenguinDiffusion.jl"}
+PenguinTransport = {path = "../PenguinTransport.jl"}
+
+[compat]
+julia = "1"
+CartesianGeometry = "0.1"
+CartesianOperators = "0.1"
+PenguinBCs = "0.1"
+PenguinSolverCore = "0.1"
+PenguinDiffusion = "0.1"
+PenguinTransport = "0.1"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
+
+[targets]
+test = ["Test", "Random"]
