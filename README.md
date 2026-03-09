@@ -1,6 +1,9 @@
 # PenguinTransportDiffusion.jl
 
 [![In development documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://PenguinxCutCell.github.io/PenguinTransportDiffusion.jl/dev)
+![CI](https://github.com/PenguinxCutCell/PenguinTransportDiffusion.jl/actions/workflows/ci.yml/badge.svg)
+![Coverage](https://codecov.io/gh/PenguinxCutCell/PenguinTransportDiffusion.jl/branch/main/graph/badge.svg)
+
 
 `PenguinTransportDiffusion.jl` is a cut-cell advection-diffusion package built on top of `PenguinDiffusion.jl` and `PenguinTransport.jl`.
 
