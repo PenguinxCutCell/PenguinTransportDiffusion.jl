@@ -50,6 +50,7 @@ jobs:
               PackageSpec(url="https://github.com/PenguinxCutCell/CartesianGrids.jl.git"),
               PackageSpec(url="https://github.com/PenguinxCutCell/PenguinDiffusion.jl.git"),
               PackageSpec(url="https://github.com/PenguinxCutCell/PenguinTransport.jl.git"),
+              PackageSpec(url="https://github.com/PenguinxCutCell/PenguinAnalysis.jl.git"),
               PackageSpec(path=pwd())
             ])
             Pkg.instantiate()'
