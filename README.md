@@ -10,7 +10,7 @@ It solves
 \partial_t T + \nabla \cdot (uT) = \nabla \cdot (D\nabla T) + f
 ```
 
-for mono-phase problems on Cartesian cut-cell grids using a coupled `(ω, γ)` formulation.
+for mono-phase and diphasic problems on Cartesian cut-cell grids using coupled `(ω, γ)` formulations.
 
 ## Install
 
@@ -38,6 +38,14 @@ u0 = zeros(cap.ntotal)
 sol = solve_unsteady!(model, u0, (0.0, 0.01); dt=1e-4, scheme=:BE, method=:direct)
 ```
 
+## Examples
+
+- `examples/gaussian_nobody_convergence.jl`
+- `examples/gaussian_outside_circle.jl`
+- `examples/embedded_wall_hot_cylinder.jl`
+- `examples/diph_planar_interface_constant_jump.jl`
+- `examples/diph_planar_interface_mms.jl`
+
 ## Feature Release Matrix
 
 | Area | Item | Status | Notes |
@@ -45,7 +53,7 @@ sol = solve_unsteady!(model, u0, (0.0, 0.01); dt=1e-4, scheme=:BE, method=:direc
 | Models | Mono-phase steady advection-diffusion | Implemented | `AdvDiffModelMono` + `assemble_steady_mono!` |
 | Models | Mono-phase unsteady advection-diffusion | Implemented | `assemble_unsteady_mono!` + `solve_unsteady!` (`:BE`, `:CN`, numeric `θ`) |
 | Models | Moving-geometry advection-diffusion | Missing | No moving-domain model type in this package |
-| Models | Diphasic advection-diffusion | Missing | Only mono-phase model is exposed |
+| Models | Diphasic advection-diffusion | Implemented | `AdvDiffModelDiph` + `assemble_steady_diph!` / `assemble_unsteady_diph!` |
 | Coupling | Diffusion assembly reuse | Implemented | Delegates to `PenguinDiffusion.assemble_steady_mono!` |
 | Coupling | Advection operator reuse | Implemented | Delegates advection ops/BCs to `PenguinTransport` |
 | Coefficients | Constant diffusion coefficient | Implemented | Scalar `D` supported through diffusion model |
@@ -62,11 +70,11 @@ sol = solve_unsteady!(model, u0, (0.0, 0.01); dt=1e-4, scheme=:BE, method=:direc
 | Time integration | Crank-Nicolson (`:CN`) | Implemented | Via theta path (`θ=1/2`) |
 | Time integration | Generic theta (`θ`) | Implemented | Numeric `scheme` accepted |
 | Solver path | Direct / iterative backend use | Implemented | Uses `PenguinSolverCore.solve!` with `method` keyword |
-| Solver path | Constant-operator/factorization reuse in march | Missing | `solve_unsteady!` currently reassembles each step |
+| Solver path | Constant-operator/factorization reuse in march | Implemented | `solve_unsteady!` reuses matrix/factorization when coefficients and BC data are time-independent |
 | Utilities | Geometry rebuild | Implemented | `rebuild!(model, moments; ...)` |
 | Utilities | Advection-op refresh API | Implemented | `update_advection_ops!` |
 | Validation | Regression tests | Implemented | Convergence and mass-drift tests in `test/runtests.jl` |
-| Validation | Standalone examples | Implemented | Two runnable scripts in `examples/` |
+| Validation | Standalone examples | Implemented | Five runnable scripts in `examples/` |
 
 ## Documentation
 
