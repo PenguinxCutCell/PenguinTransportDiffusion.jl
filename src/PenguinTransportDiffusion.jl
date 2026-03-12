@@ -12,6 +12,7 @@ using PenguinDiffusion
 using PenguinTransport
 
 export AdvDiffModelMono, AdvDiffModelDiph
+export AdvDiffCoupledModelMono
 export assemble_steady_mono!, assemble_unsteady_mono!
 export assemble_steady_diph!, assemble_unsteady_diph!
 export solve_steady!, solve_unsteady!
@@ -957,5 +958,7 @@ function solve_unsteady!(
     end
     return (times=times, states=states, system=sys, reused_constant_operator=false)
 end
+
+include("coupling.jl")
 
 end # module

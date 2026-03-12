@@ -6,6 +6,7 @@
 
 
 `PenguinTransportDiffusion.jl` is a cut-cell advection-diffusion package built on top of `PenguinDiffusion.jl` and `PenguinTransport.jl`.
+It also provides a SolverCore coupling adapter (`AdvDiffCoupledModelMono`) for Darcy-to-transport workflows.
 
 It solves
 
@@ -48,6 +49,59 @@ sol = solve_unsteady!(model, u0, (0.0, 0.01); dt=1e-4, scheme=:BE, method=:direc
 - `examples/embedded_wall_hot_cylinder.jl`
 - `examples/diph_planar_interface_constant_jump.jl`
 - `examples/diph_planar_interface_mms.jl`
+- `examples/coupled_darcy_advdiff_oneway_1d.jl`
+- `examples/coupled_darcy_advdiff_twoway_1d.jl`
+
+## First Real Coupled Workflow: Darcy + Advection-Diffusion
+
+This first real multiphysics workflow uses:
+
+- `DarcyCoupledModelMono` from `PenguinDarcy.jl` as producer of `:velocity`
+- `AdvDiffCoupledModelMono` from `PenguinTransportDiffusion.jl` as consumer of `:velocity` and producer of `:concentration`
+- Solver orchestration from `PenguinSolverCore.jl`
+
+One-way (`Darcy -> transport`):
+
+```julia
+using PenguinDarcy, PenguinTransportDiffusion, PenguinSolverCore
+
+darcy_block = CoupledBlock(:darcy, DarcyCoupledModelMono(darcy_model); init=nothing, cache=Dict{Symbol,Any}())
+transport_block = CoupledBlock(:transport, AdvDiffCoupledModelMono(advdiff_model); init=(concentration=c0,), cache=Dict{Symbol,Any}())
+
+problem = CoupledProblem(
+    [darcy_block, transport_block],
+    OneWayCoupling([:darcy, :transport]);
+    maps=[CouplingMap(:darcy, :transport, :velocity)],
+)
+
+step_coupled!(problem, t, dt; method=:direct)
+```
+
+Two-way (Picard feedback with mobility law `λ(c)`):
+
+```julia
+mode = TwoWayCoupling(
+    [:darcy, :transport];
+    maxiter=30,
+    atol=1e-10,
+    rtol=1e-8,
+    relaxation=Dict(:darcy => 0.7, :transport => 1.0),
+    norm_fields=[:velocity, :concentration],
+)
+
+problem = CoupledProblem(
+    [darcy_block, transport_block],
+    mode;
+    maps=[
+        CouplingMap(:darcy, :transport, :velocity),
+        CouplingMap(:transport, :darcy, :concentration),
+    ],
+)
+
+step_coupled!(problem, t, dt; method=:direct)
+```
+
+Current Darcy coupling in this workflow is **quasi-steady per transport time step**.
 
 ## Feature Release Matrix
 

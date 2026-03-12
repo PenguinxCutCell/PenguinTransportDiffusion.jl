@@ -22,6 +22,23 @@ Available examples
   - Advances with backward Euler and tracks total scalar mass drift.
   - Writes `gaussian_outside_circle_mass.csv`.
 
+- `examples/coupled_darcy_advdiff_oneway_1d.jl`
+  - First real one-way coupling: Darcy velocity drives advection-diffusion.
+  - Uses `OneWayCoupling` with `CouplingMap(:darcy, :transport, :velocity)`.
+  - Compares coupled result to direct velocity injection reference.
+
+- `examples/coupled_darcy_advdiff_twoway_1d.jl`
+  - First real two-way coupling: concentration feeds back to Darcy mobility.
+  - Uses `TwoWayCoupling` with outer Picard iterations and relaxation.
+  - Includes map `CouplingMap(:transport, :darcy, :concentration)`.
+
+First coupled workflow notes
+
+- One-way: flow drives scalar transport.
+- Two-way: scalar updates mobility `λ(c)`, which updates flow, which updates scalar.
+- SolverCore handles orchestration only; wrappers expose coupling fields.
+- Current Darcy unsteady hook is quasi-steady per transport time step.
+
 Tests
 
 Run the package test suite with:

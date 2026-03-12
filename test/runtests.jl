@@ -410,3 +410,6 @@ end
     res_diph = solve_unsteady!(model_const, vcat(fill(C, cap1.ntotal), fill(C, cap2.ntotal)), (0.0, 0.1); dt=0.02, scheme=:BE, save_history=false)
     @test res_diph.reused_constant_operator
 end
+
+include("test_coupling_adapter.jl")
+include("test_coupling_integration.jl")

@@ -6,6 +6,10 @@ Types
   - Fields: `diff`, `uω`, `uγ`, `bc`, `scheme`, `periodic`.
   - Construct with:
     - `AdvDiffModelMono(cap, D, uω, uγ; source=..., bc=..., bc_interface_diff=..., layout=..., coeff_mode=:harmonic, scheme=Centered())`
+- `AdvDiffCoupledModelMono`
+  - Wrapper/adaptor for `PenguinSolverCore` block coupling.
+  - Exposes `:concentration` and accepts incoming `:velocity`.
+  - Uses `advance_steady!` / `advance_unsteady!` hooks through SolverCore.
 
 Public functions
 
