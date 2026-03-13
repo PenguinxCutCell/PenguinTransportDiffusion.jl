@@ -63,6 +63,10 @@ function gaussian_exact(x, y, t; x0, y0, σ2, D, ux, uy)
     return amp * exp(-r2 / (2s2))
 end
 
+if "--mms-matrix" in ARGS
+    include("test_mms_matrix_report.jl")
+end
+
 @testset "Mono PTD u=0 reduction to diffusion (steady+unsteady, outer BC variants)" begin
     grid = (range(0.0, 1.0; length=33),)
     cap = assembled_capacity(full_moments(grid); bc=0.0)
@@ -413,3 +417,9 @@ end
 
 include("test_coupling_adapter.jl")
 include("test_coupling_integration.jl")
+include("test_moving_mono_static_recovery.jl")
+include("test_moving_diph_static_recovery.jl")
+include("test_moving_mono_zero_advection_matches_diffusion.jl")
+include("test_moving_diph_zero_advection_matches_diffusion.jl")
+include("test_moving_mono_mms_convergence.jl")
+include("test_moving_diph_mms_convergence.jl")

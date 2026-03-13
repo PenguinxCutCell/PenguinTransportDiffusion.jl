@@ -16,6 +16,15 @@ It solves
 
 for mono-phase and diphasic problems on Cartesian cut-cell grids using coupled `(ω, γ)` formulations.
 
+## Documentation
+
+- [Home](https://PenguinxCutCell.github.io/PenguinTransportDiffusion.jl/dev/)
+- [Advection-Diffusion model](https://PenguinxCutCell.github.io/PenguinTransportDiffusion.jl/dev/transport_diffusion/)
+- [Moving geometry](https://PenguinxCutCell.github.io/PenguinTransportDiffusion.jl/dev/moving/)
+- [Algorithms](https://PenguinxCutCell.github.io/PenguinTransportDiffusion.jl/dev/algorithms/)
+- [API reference](https://PenguinxCutCell.github.io/PenguinTransportDiffusion.jl/dev/api/)
+- [Examples guide](https://PenguinxCutCell.github.io/PenguinTransportDiffusion.jl/dev/examples/)
+
 ## Install
 
 ```julia
@@ -42,6 +51,18 @@ u0 = zeros(cap.ntotal)
 sol = solve_unsteady!(model, u0, (0.0, 0.01); dt=1e-4, scheme=:BE, method=:direct)
 ```
 
+## Time Schemes
+
+- Fixed geometry unsteady solves: `scheme=:BE`, `scheme=:CN`, or numeric `θ` with `0 ≤ θ ≤ 1`.
+- Moving geometry unsteady solves: same accepted scheme values via `solve_unsteady_moving!`.
+- `:BE` means `θ=1`; `:CN` means `θ=1/2`.
+
+## Dependency / Environment Notes
+
+- Root runtime dependencies are in `Project.toml`.
+- Docs environment is in `docs/Project.toml`.
+- Example scripts run from root project (`julia --project=.`).
+
 ## Examples
 
 - `examples/gaussian_nobody_convergence.jl`
@@ -49,6 +70,9 @@ sol = solve_unsteady!(model, u0, (0.0, 0.01); dt=1e-4, scheme=:BE, method=:direc
 - `examples/embedded_wall_hot_cylinder.jl`
 - `examples/diph_planar_interface_constant_jump.jl`
 - `examples/diph_planar_interface_mms.jl`
+- `examples/moving_mono_nobody_mms_convergence.jl`
+- `examples/moving_diph_planar_interface_mms_convergence.jl`
+- `examples/moving_static_recovery_compare.jl`
 - `examples/coupled_darcy_advdiff_oneway_1d.jl`
 - `examples/coupled_darcy_advdiff_twoway_1d.jl`
 
@@ -109,8 +133,9 @@ Current Darcy coupling in this workflow is **quasi-steady per transport time ste
 |---|---|---|---|
 | Models | Mono-phase steady advection-diffusion | Implemented | `AdvDiffModelMono` + `assemble_steady_mono!` |
 | Models | Mono-phase unsteady advection-diffusion | Implemented | `assemble_unsteady_mono!` + `solve_unsteady!` (`:BE`, `:CN`, numeric `θ`) |
-| Models | Moving-geometry advection-diffusion | Missing | No moving-domain model type in this package |
 | Models | Diphasic advection-diffusion | Implemented | `AdvDiffModelDiph` + `assemble_steady_diph!` / `assemble_unsteady_diph!` |
+| Models | Moving mono-phase advection-diffusion | Implemented | `MovingAdvDiffModelMono` + `assemble_unsteady_mono_moving!` + `solve_unsteady_moving!` |
+| Models | Moving diphasic advection-diffusion | Implemented | `MovingAdvDiffModelDiph` + `assemble_unsteady_diph_moving!` + `solve_unsteady_moving!` |
 | Coupling | Diffusion assembly reuse | Implemented | Delegates to `PenguinDiffusion.assemble_steady_mono!` |
 | Coupling | Advection operator reuse | Implemented | Delegates advection ops/BCs to `PenguinTransport` |
 | Coefficients | Constant diffusion coefficient | Implemented | Scalar `D` supported through diffusion model |
@@ -131,9 +156,41 @@ Current Darcy coupling in this workflow is **quasi-steady per transport time ste
 | Utilities | Geometry rebuild | Implemented | `rebuild!(model, moments; ...)` |
 | Utilities | Advection-op refresh API | Implemented | `update_advection_ops!` |
 | Validation | Regression tests | Implemented | Convergence and mass-drift tests in `test/runtests.jl` |
-| Validation | Standalone examples | Implemented | Five runnable scripts in `examples/` |
+| Validation | Static-geometry recovery (moving vs fixed) | Implemented | `test/test_moving_*_static_recovery.jl` |
+| Validation | Zero-advection reduction to moving diffusion | Implemented | `test/test_moving_*_zero_advection_matches_diffusion.jl` |
+| Validation | Moving MMS convergence examples | Implemented | `examples/moving_*_mms_convergence.jl` |
+| Validation | Standalone examples | Implemented | Ten runnable scripts in `examples/` |
 
-## Documentation
+## MMS Matrix (Validated)
+
+Validated on **2026-03-13** with:
+
+```bash
+julia --project=. test/test_mms_matrix_report.jl
+```
+
+`p12` and `p23` are successive refinement orders.
+
+| kind | scheme | embedded | moving | p12 | p23 |
+|---|---|---|---|---:|---:|
+| mono | CN | false | false | 1.96 | 1.99 |
+| mono | CN | false | true | 0.99 | 2.99 |
+| mono | CN | true | false | 1.96 | 1.99 |
+| mono | CN | true | true | 0.99 | 2.99 |
+| mono | BE | false | false | 1.96 | 1.99 |
+| mono | BE | false | true | 1.99 | 1.99 |
+| mono | BE | true | false | 1.96 | 1.99 |
+| mono | BE | true | true | 1.99 | 1.99 |
+| diph | CN | false | false | 1.96 | 1.99 |
+| diph | CN | false | true | 0.99 | 2.99 |
+| diph | CN | true | false | 1.96 | 1.99 |
+| diph | CN | true | true | 0.99 | 2.99 |
+| diph | BE | false | false | 1.96 | 1.99 |
+| diph | BE | false | true | 1.99 | 1.99 |
+| diph | BE | true | false | 1.96 | 1.99 |
+| diph | BE | true | true | 1.99 | 1.99 |
+
+## Local Docs Build
 
 Local build:
 

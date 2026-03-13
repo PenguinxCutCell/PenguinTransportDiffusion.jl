@@ -12,10 +12,12 @@ using PenguinDiffusion
 using PenguinTransport
 
 export AdvDiffModelMono, AdvDiffModelDiph
+export MovingAdvDiffModelMono, MovingAdvDiffModelDiph
 export AdvDiffCoupledModelMono
 export assemble_steady_mono!, assemble_unsteady_mono!
 export assemble_steady_diph!, assemble_unsteady_diph!
-export solve_steady!, solve_unsteady!
+export assemble_unsteady_mono_moving!, assemble_unsteady_diph_moving!
+export solve_steady!, solve_unsteady!, solve_unsteady_moving!
 export rebuild!, update_advection_ops!
 
 mutable struct AdvDiffModelMono{N,T,DM,VTω,VTγ,BCT,SCH}
@@ -33,6 +35,28 @@ mutable struct AdvDiffModelDiph{N,T,DM,V1ω,V1γ,V2ω,V2γ,BCT,SCH}
     u1γ::V1γ
     u2ω::V2ω
     u2γ::V2γ
+    bc::BCT
+    scheme::SCH
+    periodic::NTuple{N,Bool}
+end
+
+mutable struct MovingAdvDiffModelMono{N,T,DM,VTω,VTγ,WTγ,BCT,SCH}
+    diff::DM
+    uω::VTω
+    uγ::VTγ
+    wγ::WTγ
+    bc::BCT
+    scheme::SCH
+    periodic::NTuple{N,Bool}
+end
+
+mutable struct MovingAdvDiffModelDiph{N,T,DM,V1ω,V1γ,V2ω,V2γ,WTγ,BCT,SCH}
+    diff::DM
+    u1ω::V1ω
+    u1γ::V1γ
+    u2ω::V2ω
+    u2γ::V2γ
+    wγ::WTγ
     bc::BCT
     scheme::SCH
     periodic::NTuple{N,Bool}
@@ -222,7 +246,9 @@ function _theta_from_scheme(::Type{T}, scheme) where {T}
         end
         throw(ArgumentError("unknown scheme `$scheme`; expected :BE or :CN"))
     elseif scheme isa Real
-        return convert(T, scheme)
+        θ = convert(T, scheme)
+        (zero(T) <= θ <= one(T)) || throw(ArgumentError("numeric θ must satisfy 0 ≤ θ ≤ 1"))
+        return θ
     end
     throw(ArgumentError("scheme must be a Symbol (:BE/:CN) or a numeric theta"))
 end
@@ -365,6 +391,120 @@ function AdvDiffModelDiph(
         coeff_mode=coeff_mode,
         scheme=scheme,
     )
+end
+
+function MovingAdvDiffModelMono(
+    diff::PenguinDiffusion.MovingDiffusionModelMono{N,T},
+    uω,
+    uγ;
+    wγ=ntuple(_ -> zero(T), N),
+    bc::BorderConditions=diff.bc_border,
+    scheme::AdvectionScheme=Centered(),
+) where {N,T}
+    _, bc_adv = _split_borderconditions(bc, N)
+    return MovingAdvDiffModelMono{N,T,typeof(diff),typeof(uω),typeof(uγ),typeof(wγ),typeof(bc),typeof(scheme)}(
+        diff,
+        uω,
+        uγ,
+        wγ,
+        bc,
+        scheme,
+        periodic_flags(bc_adv, N),
+    )
+end
+
+function MovingAdvDiffModelMono(
+    grid::PenguinDiffusion.CartesianGrid{N,T},
+    body,
+    D,
+    uω,
+    uγ;
+    wγ=ntuple(_ -> zero(T), N),
+    source=((args...) -> zero(T)),
+    bc::BorderConditions=BorderConditions(),
+    bc_interface_diff::Union{Nothing,PenguinBCs.Robin}=nothing,
+    layout::UnknownLayout=layout_mono(prod(grid.n)),
+    coeff_mode::Symbol=:harmonic,
+    scheme::AdvectionScheme=Centered(),
+    geom_method::Symbol=:vofijul,
+) where {N,T}
+    bc_diff, _ = _split_borderconditions(bc, N)
+    diff = PenguinDiffusion.MovingDiffusionModelMono(
+        grid,
+        body,
+        D;
+        source=source,
+        bc_border=bc_diff,
+        bc_interface=bc_interface_diff,
+        layout=layout,
+        coeff_mode=coeff_mode,
+        geom_method=geom_method,
+    )
+    return MovingAdvDiffModelMono(diff, uω, uγ; wγ=wγ, bc=bc, scheme=scheme)
+end
+
+function MovingAdvDiffModelDiph(
+    diff::PenguinDiffusion.MovingDiffusionModelDiph{N,T},
+    u1ω,
+    u1γ,
+    u2ω,
+    u2γ;
+    wγ=ntuple(_ -> zero(T), N),
+    bc::BorderConditions=diff.bc_border,
+    scheme::AdvectionScheme=Centered(),
+) where {N,T}
+    _, bc_adv = _split_borderconditions(bc, N)
+    return MovingAdvDiffModelDiph{
+        N,T,typeof(diff),typeof(u1ω),typeof(u1γ),typeof(u2ω),typeof(u2γ),typeof(wγ),typeof(bc),typeof(scheme)
+    }(
+        diff,
+        u1ω,
+        u1γ,
+        u2ω,
+        u2γ,
+        wγ,
+        bc,
+        scheme,
+        periodic_flags(bc_adv, N),
+    )
+end
+
+function MovingAdvDiffModelDiph(
+    grid::PenguinDiffusion.CartesianGrid{N,T},
+    body1,
+    D1,
+    u1ω,
+    u1γ,
+    D2,
+    u2ω,
+    u2γ;
+    wγ=ntuple(_ -> zero(T), N),
+    source=((args...) -> (zero(T), zero(T))),
+    body2=nothing,
+    bc::BorderConditions=BorderConditions(),
+    ic::Union{Nothing,InterfaceConditions}=nothing,
+    bc_interface::Union{Nothing,InterfaceConditions}=nothing,
+    layout::UnknownLayout=layout_diph(prod(grid.n)),
+    coeff_mode::Symbol=:harmonic,
+    scheme::AdvectionScheme=Centered(),
+    geom_method::Symbol=:vofijul,
+) where {N,T}
+    bc_diff, _ = _split_borderconditions(bc, N)
+    diff = PenguinDiffusion.MovingDiffusionModelDiph(
+        grid,
+        body1,
+        D1,
+        D2;
+        source=source,
+        body2=body2,
+        bc_border=bc_diff,
+        ic=ic,
+        bc_interface=bc_interface,
+        layout=layout,
+        coeff_mode=coeff_mode,
+        geom_method=geom_method,
+    )
+    return MovingAdvDiffModelDiph(diff, u1ω, u1γ, u2ω, u2γ; wγ=wγ, bc=bc, scheme=scheme)
 end
 
 function _velocity_values_diph(model::AdvDiffModelDiph{N,T}, t::T) where {N,T}
@@ -564,6 +704,41 @@ function _init_unsteady_state_diph(model::AdvDiffModelDiph{N,T}, u0) where {N,T}
     return u
 end
 
+function _init_unsteady_state_mono_moving(model::MovingAdvDiffModelMono{N,T}, u0) where {N,T}
+    lay = model.diff.layout.offsets
+    nt = prod(model.diff.grid.n)
+    nsys = maximum((last(lay.ω), last(lay.γ)))
+    u = zeros(T, nsys)
+    if length(u0) == nsys
+        u .= Vector{T}(u0)
+    elseif length(u0) == nt
+        u[lay.ω] .= Vector{T}(u0)
+        u[lay.γ] .= u[lay.ω]
+    else
+        throw(DimensionMismatch("u0 length must be $nt (ω block) or $nsys (full system)"))
+    end
+    return u
+end
+
+function _init_unsteady_state_diph_moving(model::MovingAdvDiffModelDiph{N,T}, u0) where {N,T}
+    lay = model.diff.layout.offsets
+    nt = prod(model.diff.grid.n)
+    nsys = maximum((last(lay.ω1), last(lay.γ1), last(lay.ω2), last(lay.γ2)))
+    u = zeros(T, nsys)
+    if length(u0) == nsys
+        u .= Vector{T}(u0)
+    elseif length(u0) == 2 * nt
+        u0v = Vector{T}(u0)
+        u[lay.ω1] .= u0v[1:nt]
+        u[lay.ω2] .= u0v[(nt + 1):(2 * nt)]
+        u[lay.γ1] .= u[lay.ω1]
+        u[lay.γ2] .= u[lay.ω2]
+    else
+        throw(DimensionMismatch("u0 length must be $(2 * nt) (ω1+ω2) or $nsys (full system)"))
+    end
+    return u
+end
+
 function assemble_unsteady_mono!(
     sys::LinearSystem{T},
     model::AdvDiffModelMono{N,T},
@@ -667,12 +842,142 @@ function assemble_unsteady_diph!(
     return sys
 end
 
+function assemble_unsteady_mono_moving!(
+    sys::LinearSystem{T},
+    model::MovingAdvDiffModelMono{N,T},
+    uⁿ,
+    t::T,
+    dt::T,
+    scheme_or_theta,
+) where {N,T}
+    dt > zero(T) || throw(ArgumentError("dt must be positive"))
+    θ = _theta_from_scheme(T, scheme_or_theta)
+
+    PenguinDiffusion.assemble_unsteady_mono_moving!(sys, model.diff, uⁿ, t, dt; scheme=θ)
+
+    cap = something(model.diff.cap_slab)
+    lay = model.diff.layout.offsets
+    _validate_mono_layout(cap, lay)
+
+    τ = t + θ * dt
+    uωv, uγv = _velocity_values(cap, model.uω, model.uγ, τ)
+    wγv = _velocity_tuple_values(cap, model.wγ, cap.C_γ, τ)
+    uγrel = PenguinTransport._relative_interface_velocity(uγv, wγv)
+
+    opsA = PenguinTransport._advection_ops_moving(
+        cap,
+        uωv,
+        uγrel;
+        periodic=model.periodic,
+        scheme=model.scheme,
+    )
+
+    conv_bulk = reduce(+, opsA.C)
+    conv_iface = convert(T, 0.5) * reduce(+, opsA.K)
+
+    _insert_block!(sys.A, lay.ω, lay.ω, conv_bulk + conv_iface)
+    _insert_block!(sys.A, lay.ω, lay.γ, conv_iface)
+
+    _, bc_adv = _split_borderconditions(model.bc, N)
+    PenguinTransport.apply_box_bc_transport_mono!(
+        sys.A,
+        sys.b,
+        cap,
+        uωv,
+        bc_adv,
+        model.scheme;
+        t=τ,
+        ωrows=lay.ω,
+    )
+
+    active_rows = PenguinTransport._mono_row_activity(cap, lay)
+    sys.A, sys.b = PenguinTransport._apply_row_identity_constraints!(sys.A, sys.b, active_rows)
+    sys.cache = nothing
+    return sys
+end
+
+function assemble_unsteady_diph_moving!(
+    sys::LinearSystem{T},
+    model::MovingAdvDiffModelDiph{N,T},
+    uⁿ,
+    t::T,
+    dt::T,
+    scheme_or_theta,
+) where {N,T}
+    dt > zero(T) || throw(ArgumentError("dt must be positive"))
+    θ = _theta_from_scheme(T, scheme_or_theta)
+
+    PenguinDiffusion.assemble_unsteady_diph_moving!(sys, model.diff, uⁿ, t, dt; scheme=θ)
+
+    cap1 = something(model.diff.cap1_slab)
+    cap2 = something(model.diff.cap2_slab)
+    lay = model.diff.layout.offsets
+    _validate_diph_layout(cap1, cap2, lay)
+
+    τ = t + θ * dt
+    u1ωv = _velocity_tuple_values(cap1, model.u1ω, cap1.C_ω, τ)
+    u1γv = _velocity_tuple_values(cap1, model.u1γ, cap1.C_γ, τ)
+    u2ωv = _velocity_tuple_values(cap2, model.u2ω, cap2.C_ω, τ)
+    u2γv = _velocity_tuple_values(cap2, model.u2γ, cap2.C_γ, τ)
+    wγv = _velocity_tuple_values(cap1, model.wγ, cap1.C_γ, τ)
+
+    u1γrel = PenguinTransport._relative_interface_velocity(u1γv, wγv)
+    u2γrel = PenguinTransport._relative_interface_velocity(u2γv, wγv)
+    opsA1 = PenguinTransport._advection_ops_moving(cap1, u1ωv, u1γrel; periodic=model.periodic, scheme=model.scheme)
+    opsA2 = PenguinTransport._advection_ops_moving(cap2, u2ωv, u2γrel; periodic=model.periodic, scheme=model.scheme)
+
+    conv_bulk1 = reduce(+, opsA1.C)
+    conv_iface1 = convert(T, 0.5) * reduce(+, opsA1.K)
+    conv_bulk2 = reduce(+, opsA2.C)
+    conv_iface2 = convert(T, 0.5) * reduce(+, opsA2.K)
+
+    _insert_block!(sys.A, lay.ω1, lay.ω1, conv_bulk1 + conv_iface1)
+    _insert_block!(sys.A, lay.ω1, lay.γ1, conv_iface1)
+    _insert_block!(sys.A, lay.ω2, lay.ω2, conv_bulk2 + conv_iface2)
+    _insert_block!(sys.A, lay.ω2, lay.γ2, conv_iface2)
+
+    _, bc_adv = _split_borderconditions(model.bc, N)
+    PenguinTransport.apply_box_bc_transport_mono!(
+        sys.A,
+        sys.b,
+        cap1,
+        u1ωv,
+        bc_adv,
+        model.scheme;
+        t=τ,
+        ωrows=lay.ω1,
+    )
+    PenguinTransport.apply_box_bc_transport_mono!(
+        sys.A,
+        sys.b,
+        cap2,
+        u2ωv,
+        bc_adv,
+        model.scheme;
+        t=τ,
+        ωrows=lay.ω2,
+    )
+
+    active_rows = PenguinDiffusion._diph_row_activity(cap1, cap2, lay)
+    sys.A, sys.b = PenguinTransport._apply_row_identity_constraints!(sys.A, sys.b, active_rows)
+    sys.cache = nothing
+    return sys
+end
+
 function PenguinSolverCore.assemble!(sys::LinearSystem{T}, model::AdvDiffModelMono{N,T}, t, dt) where {N,T}
     assemble_unsteady_mono!(sys, model, sys.x, convert(T, t), convert(T, dt), one(T))
 end
 
 function PenguinSolverCore.assemble!(sys::LinearSystem{T}, model::AdvDiffModelDiph{N,T}, t, dt) where {N,T}
     assemble_unsteady_diph!(sys, model, sys.x, convert(T, t), convert(T, dt), one(T))
+end
+
+function PenguinSolverCore.assemble!(sys::LinearSystem{T}, model::MovingAdvDiffModelMono{N,T}, t, dt) where {N,T}
+    assemble_unsteady_mono_moving!(sys, model, sys.x, convert(T, t), convert(T, dt), one(T))
+end
+
+function PenguinSolverCore.assemble!(sys::LinearSystem{T}, model::MovingAdvDiffModelDiph{N,T}, t, dt) where {N,T}
+    assemble_unsteady_diph_moving!(sys, model, sys.x, convert(T, t), convert(T, dt), one(T))
 end
 
 function solve_steady!(model::AdvDiffModelMono{N,T}; t::T=zero(T), method::Symbol=:direct, kwargs...) where {N,T}
@@ -691,6 +996,94 @@ function solve_steady!(model::AdvDiffModelDiph{N,T}; t::T=zero(T), method::Symbo
     assemble_steady_diph!(sys, model, t)
     solve!(sys; method=method, reuse_factorization=false, kwargs...)
     return (system=sys, solution=copy(sys.x))
+end
+
+function solve_unsteady_moving!(
+    model::MovingAdvDiffModelMono{N,T},
+    u0,
+    tspan::Tuple{T,T};
+    dt::T,
+    scheme=:BE,
+    method::Symbol=:direct,
+    save_history::Bool=true,
+    kwargs...,
+) where {N,T}
+    t0, tend = tspan
+    tend >= t0 || throw(ArgumentError("tspan must satisfy tend >= t0"))
+    dt > zero(T) || throw(ArgumentError("dt must be positive"))
+    θ = _theta_from_scheme(T, scheme)
+
+    u = _init_unsteady_state_mono_moving(model, u0)
+    lay = model.diff.layout.offsets
+    nsys = maximum((last(lay.ω), last(lay.γ)))
+
+    times = T[t0]
+    states = Vector{Vector{T}}()
+    save_history && push!(states, copy(u))
+
+    sys = LinearSystem(spzeros(T, nsys, nsys), zeros(T, nsys); x=copy(u))
+    t = t0
+    tol = sqrt(eps(T)) * max(one(T), abs(t0), abs(tend))
+
+    while t < tend - tol
+        dt_step = min(dt, tend - t)
+        assemble_unsteady_mono_moving!(sys, model, u, t, dt_step, θ)
+        solve!(sys; method=method, reuse_factorization=false, kwargs...)
+        u .= sys.x
+        t += dt_step
+        push!(times, t)
+        save_history && push!(states, copy(u))
+    end
+
+    if !save_history
+        states = [copy(u)]
+        times = T[t]
+    end
+    return (times=times, states=states, system=sys, reused_constant_operator=false)
+end
+
+function solve_unsteady_moving!(
+    model::MovingAdvDiffModelDiph{N,T},
+    u0,
+    tspan::Tuple{T,T};
+    dt::T,
+    scheme=:BE,
+    method::Symbol=:direct,
+    save_history::Bool=true,
+    kwargs...,
+) where {N,T}
+    t0, tend = tspan
+    tend >= t0 || throw(ArgumentError("tspan must satisfy tend >= t0"))
+    dt > zero(T) || throw(ArgumentError("dt must be positive"))
+    θ = _theta_from_scheme(T, scheme)
+
+    u = _init_unsteady_state_diph_moving(model, u0)
+    lay = model.diff.layout.offsets
+    nsys = maximum((last(lay.ω1), last(lay.γ1), last(lay.ω2), last(lay.γ2)))
+
+    times = T[t0]
+    states = Vector{Vector{T}}()
+    save_history && push!(states, copy(u))
+
+    sys = LinearSystem(spzeros(T, nsys, nsys), zeros(T, nsys); x=copy(u))
+    t = t0
+    tol = sqrt(eps(T)) * max(one(T), abs(t0), abs(tend))
+
+    while t < tend - tol
+        dt_step = min(dt, tend - t)
+        assemble_unsteady_diph_moving!(sys, model, u, t, dt_step, θ)
+        solve!(sys; method=method, reuse_factorization=false, kwargs...)
+        u .= sys.x
+        t += dt_step
+        push!(times, t)
+        save_history && push!(states, copy(u))
+    end
+
+    if !save_history
+        states = [copy(u)]
+        times = T[t]
+    end
+    return (times=times, states=states, system=sys, reused_constant_operator=false)
 end
 
 function _matrix_time_dependent(model::AdvDiffModelMono{N,T}) where {N,T}
