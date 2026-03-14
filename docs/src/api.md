@@ -1,4 +1,4 @@
-**API & Types**
+# API & Types
 
 Types
 

@@ -1,4 +1,4 @@
-**Examples**
+# Examples
 
 The repository contains runnable example scripts under `examples/`.
 

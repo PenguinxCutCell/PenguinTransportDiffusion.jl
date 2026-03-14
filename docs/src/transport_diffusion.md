@@ -1,4 +1,4 @@
-**Advection-Diffusion Model**
+# Advection-Diffusion Model
 
 `PenguinTransportDiffusion.jl` provides fixed and moving advection-diffusion models:
 
