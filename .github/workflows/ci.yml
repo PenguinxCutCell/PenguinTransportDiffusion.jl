@@ -24,20 +24,20 @@ jobs:
       - uses: julia-actions/cache@v2
 
       - name: Install dependencies (including VofiJul), instantiate
-        run: julia --project=. -e 'using Pkg.develop([
-              PackageSpec(url="https://github.com/PenguinxCutCell/Vofinit.jl.git"),
-              PackageSpec(url="https://github.com/PenguinxCutCell/VOFTools.jl.git"),
-              PackageSpec(url="https://github.com/PenguinxCutCell/VofiJul.jl.git"),
-              PackageSpec(url="https://github.com/PenguinxCutCell/CartesianGeometry.jl.git"),
-              PackageSpec(url="https://github.com/PenguinxCutCell/CartesianOperators.jl.git"),
-              PackageSpec(url="https://github.com/PenguinxCutCell/PenguinSolverCore.jl.git"),
-              PackageSpec(url="https://github.com/PenguinxCutCell/PenguinBCs.jl.git"),
-              PackageSpec(url="https://github.com/PenguinxCutCell/CartesianGrids.jl.git"),
-              PackageSpec(url="https://github.com/PenguinxCutCell/PenguinDiffusion.jl.git"),
-              PackageSpec(url="https://github.com/PenguinxCutCell/PenguinTransport.jl.git"),
-              PackageSpec(url="https://github.com/PenguinxCutCell/PenguinDarcy.jl.git"),
-              PackageSpec(url="https://github.com/PenguinxCutCell/GlobalHeightFunctions.jl.git"),
-              PackageSpec(url="https://github.com/PenguinxCutCell/PenguinAnalysis.jl.git")]); Pkg.instantiate()'
+        run: julia --project=. -e 'using Pkg; Pkg.develop([
+          PackageSpec(url="https://github.com/PenguinxCutCell/Vofinit.jl.git"),
+          PackageSpec(url="https://github.com/PenguinxCutCell/VOFTools.jl.git"),
+          PackageSpec(url="https://github.com/PenguinxCutCell/VofiJul.jl.git"),
+          PackageSpec(url="https://github.com/PenguinxCutCell/CartesianGeometry.jl.git"),
+          PackageSpec(url="https://github.com/PenguinxCutCell/CartesianOperators.jl.git"),
+          PackageSpec(url="https://github.com/PenguinxCutCell/PenguinSolverCore.jl.git"),
+          PackageSpec(url="https://github.com/PenguinxCutCell/PenguinBCs.jl.git"),
+          PackageSpec(url="https://github.com/PenguinxCutCell/CartesianGrids.jl.git"),
+          PackageSpec(url="https://github.com/PenguinxCutCell/PenguinDiffusion.jl.git"),
+          PackageSpec(url="https://github.com/PenguinxCutCell/PenguinTransport.jl.git"),
+          PackageSpec(url="https://github.com/PenguinxCutCell/PenguinDarcy.jl.git"),
+          PackageSpec(url="https://github.com/PenguinxCutCell/GlobalHeightFunctions.jl.git"),
+          PackageSpec(url="https://github.com/PenguinxCutCell/PenguinAnalysis.jl.git")]); Pkg.instantiate()'
 
       - uses: julia-actions/julia-buildpkg@v1
 
